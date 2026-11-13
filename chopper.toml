@@ -1,0 +1,36 @@
+# Config file for Chopper Attack Recompilation
+
+[input]
+entrypoint = 0x80000400
+output_func_path = "recomp"
+symbols_file_path = "chopper_symbols.toml"
+rom_file_path = "rom/chopper_attack.z64"
+functions_per_output_file = 25
+trace_mode = true
+
+[patches]
+stubs = [
+    # Low-level MIPS exception/interrupt handler & TLB routines (handled natively by N64ModernRuntime)
+    "func_80056610",
+    "func_80056C2C",
+    "func_8005F360",
+    "func_8005F370",
+    "func_8005F530",
+    "func_80062B70",
+    "func_80062BBC",
+    "func_80064EC4",
+    "func_80064ED8",
+    "func_80064F70",
+    # MIPS hardware cache manipulation functions (no CPU cache on modern x86/x64)
+    "func_80059960",
+    "func_8005F430",
+    "func_8005F4B0",
+    # Hardware MMIO register access stubs
+    "func_80059C80",
+    "func_80061BF0",
+    "func_80061C40",
+    "func_80059E90"
+]
+
+ignored = [
+]

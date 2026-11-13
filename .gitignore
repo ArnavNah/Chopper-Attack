@@ -1,0 +1,32 @@
+# Bring Your Own ROM & Build Artifacts
+*.z64
+*.v64
+*.n64
+rom/
+roms/
+*.bin
+*.elf
+*.o
+*.obj
+build/
+bin/
+tools/*
+!tools/*.py
+!tools/*.ps1
+!tools/*.patch
+
+ghidra/
+*.log
+.vs/
+out/
+
+# Local analysis tools and generated release artifacts
+ghidra_12.2_PUBLIC/
+package/*.exe
+package/*.dll
+package/evidence/
+saves/
+package/saves/
+mod_config/
+package/mod_config/
+*.bak

@@ -1,0 +1,76 @@
+diff --git a/src/hle/rt64_present_queue.cpp b/src/hle/rt64_present_queue.cpp
+index 2afdfe2..bef3699 100644
+--- a/src/hle/rt64_present_queue.cpp
++++ b/src/hle/rt64_present_queue.cpp
+@@ -140,6 +140,12 @@ namespace RT64 {
+         // If that fails, we look at the shared storage.
+         const bool viVisible = present.screenVI.visible();
+         hlslpp::uint2 fbSize = viVisible ? present.screenVI.fbSize() : hlslpp::uint2();
++        static uint32_t s_pq_count = 0;
++        s_pq_count++;
++        if (s_pq_count <= 10 || (s_pq_count % 60 == 0)) {
++            printf("[RT64 Present #%u] viVisible=%d, fbAddr=0x%08X, origin=0x%08X, fbSize=(%u, %u), storageSize=%zu\n",
++                s_pq_count, (int)viVisible, present.screenVI.fbAddress(), present.screenVI.origin, (uint32_t)fbSize.x, (uint32_t)fbSize.y, present.storage.size());
++        }
+         if (viVisible && (fbSize.x > 0) && (fbSize.y > 0)) {
+             Framebuffer *viFb = nullptr;
+             if (!viewRDRAM) {
+@@ -212,13 +218,18 @@ namespace RT64 {
+                 }
+                 else {
+                     colorTarget = nullptr;
++                    if (lockedWorkloadMutex) {
++                        ext.sharedResources->workloadMutex.unlock();
++                        lockedWorkloadMutex = false;
++                    }
+                 }
+ 
+                 if (!present.paused && (viHistory.top().vi != present.screenVI)) {
+                     viHistory.pushVI(present.screenVI, viFb->width);
+                 }
+             }
+-            else {
++            
++            if (colorTarget == nullptr) {
+                 uint32_t fbAddress = present.screenVI.fbAddress();
+ 
+                 // Use a scratch framebuffer to upload the RAM to the render target.
+@@ -227,8 +238,10 @@ namespace RT64 {
+                 scratchFb.height = fbSize.y;
+                 scratchFb.siz = present.screenVI.fbSiz();
+ 
+-                lockedWorkloadMutex = true;
+-                ext.sharedResources->workloadMutex.lock();
++                if (!lockedWorkloadMutex) {
++                    lockedWorkloadMutex = true;
++                    ext.sharedResources->workloadMutex.lock();
++                }
+ 
+                 RenderTargetKey colorTargetKey(fbAddress, scratchFb.width, scratchFb.siz, Framebuffer::Type::Color);
+                 colorTarget = &targetManager.get(colorTargetKey, true);
+@@ -238,7 +251,7 @@ namespace RT64 {
+ 
+                 scratchFb.nativeTarget.resetBufferHistory();
+ 
+-                {
++                if (!present.storage.empty()) {
+                     RenderWorkerExecution workerExecution(ext.presentGraphicsWorker);
+                     colorTarget->clearColorTarget(ext.presentGraphicsWorker);
+                     FramebufferChange *colorFbChange = scratchFb.readChangeFromBytes(ext.presentGraphicsWorker, scratchFbChangePool, Framebuffer::Type::Color,
+@@ -342,12 +355,15 @@ namespace RT64 {
+                 }
+                 
+                 commandList->setFramebuffer(swapChainFramebuffer);
+-                commandList->clearColor();
+ 
+                 if (renderParams.texture != nullptr) {
++                    commandList->clearColor();
+                     commandList->barriers(RenderBarrierStage::GRAPHICS, RenderTextureBarrier(renderParams.texture, RenderTextureLayout::SHADER_READ));
+                     viRenderer->render(renderParams);
+                 }
++                else {
++                    commandList->clearColor(0, RenderColor(0.2f, 0.4f, 0.8f, 1.0f));
++                }
+ 
+                 RenderHookDraw *drawHook = GetRenderHookDraw();
+                 if (drawHook != nullptr) {
