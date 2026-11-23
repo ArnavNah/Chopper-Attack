@@ -1612,7 +1612,7 @@ L_8001FF80:
     ctx->r12 = MEM_H(ctx->r12, 0X6ACC);
     // 0x8001FFA4: lhu         $v1, -0x2E44($v1)
     ctx->r3 = MEM_HU(ctx->r3, -0X2E44);
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__vita__)
     // In the left-handed layout the C-buttons select cameras. Keyboard
     // movement is handled separately above and should not toggle the view.
     if (ctx->r12 == 0) ctx->r3 &= ~((gpr)chopper_flight_camera_mask());
@@ -3637,7 +3637,7 @@ RECOMP_FUNC void func_80020A90(uint8_t* rdram, recomp_context* ctx) {
     // 0x80020B00: swc1        $f0, 0xE8($sp)
     MEM_W(0XE8, ctx->r29) = ctx->f0.u32l;
 L_80020B04:
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__vita__)
     // The stock code has normalized flight movement to the D-pad bits here.
     chopper_apply_flight_controls(rdram, ctx);
 #endif
@@ -10105,8 +10105,8 @@ L_80022C44:
 L_80022C5C:
     // 0x80022C5C: lhu         $t8, -0x2E44($t8)
     ctx->r24 = MEM_HU(ctx->r24, -0X2E44);
-#ifdef _WIN32
-    // The Windows secondary-weapon binding uses R in both controller modes.
+#if defined(_WIN32) || defined(__vita__)
+    // The secondary-weapon binding uses R in both controller modes.
     ctx->r2 |= 0x10;
 #endif
     // 0x80022C60: and         $t9, $t8, $v0

@@ -43,6 +43,56 @@ A clean-room native PC port of the Nintendo 64 game **Chopper Attack** (SETA / M
 2. Place your legally owned copy of the N64 game ROM inside `package/rom/chopper_attack.z64` (or double-click the executable to use the Windows file picker).
 3. Run `ChopperAttack.exe` or `run.bat`.
 
+### PlayStation Vita development
+
+The experimental Vita application uses the recompiled game and RSP audio code
+with Vita-native audio and input, plus a Fast3D renderer on vitaGL. The renderer
+uses the 960×544 display for perspective scenes and centers the 4:3 menus and HUD.
+The port uses the GPL-3.0 renderer and Vita runtime adaptations from
+[The New Tetris: Recompiled](https://github.com/SeveerJ/tnt64-recomp).
+The Fast3D and widescreen changes are in `vita/fast3d-renderer.patch`.
+See [the GPL-3.0 license text](vita/COPYING) for the code adapted from that project.
+
+Set `VITASDK`, install the `vitaGL`, `vitaShaRK`, `SceShaccCgExt`,
+`libmathneon`, and `taihen` VitaSDK packages, and prepare the pinned game
+dependencies as described below. Then build the Vita application separately
+from the Windows build.
+
+```sh
+python vita/prepare.py
+cmake -S vita -B build/vita -G Ninja -DCMAKE_BUILD_TYPE=Release -DCHOPPER_VITA_APP=ON
+cmake --build build/vita
+```
+
+To cross-compile just the game core, configure with `-DCHOPPER_VITA_APP=OFF`.
+
+If your N64Recomp checkout predates Vita support, apply the ARM32 header patch
+once from the project root.
+
+```sh
+git -C tools/N64ModernRuntime/N64Recomp apply ../../../patches/N64Recomp-arm32.patch
+```
+
+On a modded Vita, install `build/vita/ChopperAttack.vpk` with VitaShell. vitaGL needs
+`libshacccg.suprx` in `ur0:data/` or `ur0:data/external/`. Supply your own
+USA ROM at `ux0:data/ChopperAttack/chopper_attack.z64`. The app writes its
+startup log and saves under `ux0:data/ChopperAttack/`. Game assets are loaded
+from the ROM at runtime.
+
+| Vita input | Action |
+| --- | --- |
+| Left stick up/down | Fly forward/reverse and pitch |
+| Right stick left/right | Turn left/right |
+| L / R | Fire cannon / fire equipped weapon |
+| Cross / Circle | Confirm or previous weapon / back or next weapon |
+| D-pad or left stick | Navigate menus |
+| Right stick | N64 C-buttons in menus |
+| Triangle | N64 C-Up |
+| Start | Pause |
+| Hold Start + Select for 2 seconds | Quit |
+
+---
+
 ## 🛠️ Building From Source
 
 ### Prerequisites (Windows 11)

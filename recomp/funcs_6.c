@@ -1,6 +1,7 @@
 #include "recomp.h"
 #include "trace.h"
 #include "funcs.h"
+#include "chopper_recomp_hooks.h"
 
 RECOMP_FUNC void func_80009874(uint8_t* rdram, recomp_context* ctx) {
     uint64_t hi = 0, lo = 0, result = 0;

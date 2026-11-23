@@ -17,6 +17,12 @@ foreach ($dep in $dependencies) {
     Invoke-Git @('clone','--no-checkout',$dep.Url,$path)
     Invoke-Git @('-C',$path,'checkout','--detach',$dep.Commit)
     Invoke-Git @('-C',$path,'submodule','update','--init','--recursive')
+    if ($dep.Name -eq 'N64ModernRuntime') {
+        $nestedRecompiler = Join-Path $path 'N64Recomp'
+        $arm32Patch = Join-Path $root 'patches/N64Recomp-arm32.patch'
+        Invoke-Git @('-C',$nestedRecompiler,'apply','--check',$arm32Patch)
+        Invoke-Git @('-C',$nestedRecompiler,'apply',$arm32Patch)
+    }
     if ($dep.Name -eq 'N64Recomp') {
         Invoke-Git @('-C',(Join-Path $path 'lib/tomlplusplus'),'checkout','--detach','c6cbe977304c42a34ee5a553f87c9e1d53bdbc09')
     }

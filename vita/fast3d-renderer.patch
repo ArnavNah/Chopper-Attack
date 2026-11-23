@@ -1,0 +1,325 @@
+--- a/n64_renderer.cpp
++++ b/n64_renderer.cpp
+@@ -23,9 +23,9 @@
+ // ---------------------------------------------------------------------------------------
+ namespace G {
+     // F3DEX2 geometry mode
+-    constexpr uint32_t ZBUFFER = 0x1, SHADE = 0x4, CULL_FRONT = 0x200, CULL_BACK = 0x400,
++    constexpr uint32_t ZBUFFER = 0x1, SHADE = 0x4, CULL_FRONT = 0x00001000, CULL_BACK = 0x00002000,
+         FOG = 0x10000, LIGHTING = 0x20000, TEXTURE_GEN = 0x40000, TEXTURE_GEN_LINEAR = 0x80000,
+-        SHADING_SMOOTH = 0x200000;
++        SHADING_SMOOTH = 0x00000200;
+     // Other mode H
+     constexpr int CYCLE_SHIFT = 20, TEXFILT_SHIFT = 12, TEXTLUT_SHIFT = 14;
+     enum Cycle { CYC_1 = 0, CYC_2 = 1, CYC_COPY = 2, CYC_FILL = 3 };
+@@ -379,7 +379,7 @@
+         if (!current_fb) return;
+         if (target_display) {
+             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+-            glViewport(tgt_x0, tgt_y0, (int)std::lround(current_fb->width * tgt_sx), (int)std::lround(current_fb->height * tgt_sy));
++            glViewport(0, tgt_y0, cfg.output_width, (int)std::lround(current_fb->height * tgt_sy));
+         } else {
+             glBindFramebuffer(GL_FRAMEBUFFER, current_fb->fbo);
+             glViewport(0, 0, current_fb->width * cfg.scale, current_fb->height * cfg.scale);
+@@ -399,7 +399,7 @@
+             tgt_x0 = (cfg.output_width - w) / 2; tgt_y0 = (cfg.output_height - h) / 2;
+             tgt_sx = (float)w / f->width; tgt_sy = (float)h / f->height;
+             glBindFramebuffer(GL_FRAMEBUFFER, 0);
+-            glViewport(tgt_x0, tgt_y0, w, h);
++            glViewport(0, tgt_y0, cfg.output_width, h);
+             if (!display_drawn) {
+                 display_drawn = true;
+                 glDisable(GL_SCISSOR_TEST);
+@@ -429,6 +429,10 @@
+ 
+     float fb_w() const { return current_fb ? (float)current_fb->width : 320.0f; }
+     float fb_h() const { return current_fb ? (float)current_fb->height : 240.0f; }
++
++    float horizontal_clip_scale() const {
++        return target_display ? fb_w() * tgt_sx / cfg.output_width : 1.0f;
++    }
+ 
+     // ---- textures ----
+     static int bits_of(int siz) { return 4 << siz; }
+@@ -818,6 +822,13 @@
+             k.cull = c == (G::CULL_FRONT | G::CULL_BACK) ? 3 : c == G::CULL_FRONT ? 1 : c == G::CULL_BACK ? 2 : 0;
+         }
+         memcpy(k.sc, scissor, sizeof(scissor));
++        // Extend the perspective scene viewport to the edges. Leave orthographic
++        // objects and screen-space rectangles within their original 4:3 canvas.
++        if (target_display && !rect && proj[3][3] == 0.0f &&
++            k.sc[0] <= 8 && k.sc[2] >= fb_w() - 8) {
++            k.sc[0] -= static_cast<int>(std::ceil(tgt_x0 / tgt_sx));
++            k.sc[2] += static_cast<int>(std::ceil(tgt_x0 / tgt_sx));
++        }
+         memcpy(k.prim, prim, sizeof(prim));
+         memcpy(k.env, env, sizeof(env));
+         k.misc[0] = prim_lod; k.misc[1] = 0.0f; k.misc[2] = std::max(blend_col[3], 1.0f / 255.0f); k.misc[3] = 0;
+@@ -979,7 +990,7 @@
+             const Vertex& v = *vs[k];
+             const Vertex& cv = flat ? *vs[0] : v;
+             GLVertex g{};
+-            g.x = v.x; g.y = v.y; g.z = v.z; g.w = v.w;
++            g.x = v.x * horizontal_clip_scale(); g.y = v.y; g.z = v.z; g.w = v.w;
+             if (shade) { g.r = cv.r; g.g = cv.g; g.b = cv.b; g.a = cv.a; }
+             else { g.r = g.g = g.b = g.a = 1.0f; }
+             if (t0.id) tile_uv(tex_tile, v.s, v.t, t0.w, t0.h, g.u0, g.v0);
+@@ -994,7 +1005,7 @@
+         static const int dbg = getenv("TNT_GLES_DEBUG") ? atoi(getenv("TNT_GLES_DEBUG")) : 0;
+         if ((dbg & 8) && fb_w() > 0 && !(x0 <= 0 && y0 <= 0 && x1 >= fb_w() - 1)) return; // keep full-screen clears only
+         float W = fb_w(), H = fb_h();
+-        auto nx = [&](float x) { return x / (W * 0.5f) - 1.0f; };
++        auto nx = [&](float x) { return (x / (W * 0.5f) - 1.0f) * horizontal_clip_scale(); };
+         auto ny = [&](float y) { return 1.0f - y / (H * 0.5f); };
+         GLVertex q[4];
+         float xs[4] = { x0, x1, x0, x1 }, ys[4] = { y0, y0, y1, y1 };
+@@ -1089,6 +1100,38 @@
+         rect_vertices(ulx, uly, lrx, lry, z, uv, uvb, white);
+     }
+ 
++    void f3d_matrix(uint32_t address, uint32_t params) {
++        float matrix[4][4];
++        load_matrix(address, matrix);
++        if (params & 1) {
++            if (params & 2) memcpy(proj, matrix, sizeof(matrix));
++            else mul(proj, matrix, proj);
++        } else {
++            if ((params & 4) && mv_depth < 9) {
++                memcpy(mv_stack[mv_depth + 1], mv_stack[mv_depth], sizeof(matrix));
++                ++mv_depth;
++            }
++            if (params & 2) memcpy(mv_stack[mv_depth], matrix, sizeof(matrix));
++            else mul(mv_stack[mv_depth], matrix, mv_stack[mv_depth]);
++        }
++        mvp_dirty = true;
++    }
++
++    void f3d_move_mem(uint32_t address, uint32_t index) {
++        if (index == 0x80) {
++            for (int i = 0; i < 4; ++i) {
++                vp_scale[i] = static_cast<int16_t>(r16(address + i * 2)) / 4.0f;
++                vp_trans[i] = static_cast<int16_t>(r16(address + 8 + i * 2)) / 4.0f;
++            }
++        } else if (index >= 0x86 && index <= 0x94 && (index & 1) == 0) {
++            const auto light = (index - 0x86) / 2;
++            for (int channel = 0; channel < 3; ++channel) {
++                light_col[light][channel] = r8(address + channel) / 255.0f;
++                light_dir[light][channel] = static_cast<int8_t>(r8(address + 8 + channel)) / 127.0f;
++            }
++        }
++    }
++
+     // ---- display list ----
+     void run(uint32_t start) {
+         uint32_t stack[18]; int sp = 0;
+@@ -1098,143 +1141,64 @@
+             uint32_t w0 = r32(pc), w1 = r32(pc + 4);
+             pc += 8;
+             uint8_t op = w0 >> 24;
+-            if (op >= 0xD0 || op == 0x04) state_serial++;
++            if (op >= 0xD0 || (op < 0xC0 && op != 0xBF && op != 0xB5)) state_serial++;
++            if (op < 0xC0) {
++                switch (op) {
++                    case 0x00: break;
++                    case 0x01: f3d_matrix(phys(w1), (w0 >> 16) & 0xFF); break;
++                    case 0x03: f3d_move_mem(phys(w1), (w0 >> 16) & 0xFF); break;
++                    case 0x04: load_vertices(phys(w1), (w0 >> 16) & 0xF, ((w0 >> 20) & 0xF) + 1); break;
++                    case 0x06:
++                        if ((w0 & 0x10000) == 0) {
++                            if (sp >= 18) return;
++                            stack[sp++] = pc;
++                        }
++                        pc = phys(w1);
++                        break;
++                    case 0xB3: rdphalf2 = w1; break;
++                    case 0xB4: rdphalf1 = w1; break;
++                    case 0xB5:
++                        triangle((w1 >> 24) / 10, ((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10);
++                        triangle((w1 >> 24) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10);
++                        break;
++                    case 0xB6: geometry_mode &= ~w1; break;
++                    case 0xB7: geometry_mode |= w1; break;
++                    case 0xB8:
++                        if (sp == 0) return;
++                        pc = stack[--sp];
++                        break;
++                    case 0xB9:
++                    case 0xBA: {
++                        const uint32_t shift = (w0 >> 8) & 0xFF, length = w0 & 0xFF;
++                        if (shift >= 32 || length == 0) break;
++                        const uint32_t mask = (length >= 32 ? 0xFFFFFFFFu : (1u << length) - 1) << shift;
++                        uint32_t& mode = op == 0xB9 ? othermode_l : othermode_h;
++                        mode = (mode & ~mask) | (w1 & mask);
++                        break;
++                    }
++                    case 0xBB:
++                        tex_scale_s = (w1 >> 16) / 65536.0f;
++                        tex_scale_t = (w1 & 0xFFFF) / 65536.0f;
++                        tex_tile = (w0 >> 8) & 7;
++                        tex_on = (w0 & 0xFF) != 0;
++                        break;
++                    case 0xBC: {
++                        const uint32_t index = w0 & 0xFF, offset = (w0 >> 8) & 0xFFFF;
++                        if (index == 6) segments[(offset >> 2) & 0xF] = w1 & 0xFFFFFF;
++                        else if (index == 2 && w1 >= 0x80000020u) num_lights = std::min(7u, ((w1 - 0x80000000u) >> 5) - 1);
++                        break;
++                    }
++                    case 0xBD:
++                        if (w1 == 0 && mv_depth > 0) { --mv_depth; mvp_dirty = true; }
++                        break;
++                    case 0xBE: break;
++                    case 0xBF: triangle(((w1 >> 16) & 0xFF) / 10, ((w1 >> 8) & 0xFF) / 10, (w1 & 0xFF) / 10); break;
++                    default: ++stats.unknown_commands; break;
++                }
++                continue;
++            }
+             if (tracing && trace_cmds) printf("[cmd] %06X: %08X %08X\n", pc - 8, w0, w1);
+             switch (op) {
+-                case 0x00: break;                                           // G_SPNOOP
+-                case 0x01: {                                                // G_VTX
+-                    int n = (w0 >> 12) & 0xFF, end = (w0 >> 1) & 0x7F;
+-                    load_vertices(phys(w1), end - n, n);
+-                    break;
+-                }
+-                case 0x02: {                                                // G_MODIFYVTX
+-                    int where = (w0 >> 16) & 0xFF, idx = ((w0 & 0xFFFF) >> 1);
+-                    if (idx < 64) {
+-                        Vertex& v = verts[idx];
+-                        if (where == 0x10) { v.r = (w1 >> 24) / 255.0f; v.g = ((w1 >> 16) & 0xFF) / 255.0f; v.b = ((w1 >> 8) & 0xFF) / 255.0f; v.a = (w1 & 0xFF) / 255.0f; }
+-                        else if (where == 0x14) { v.s = (int16_t)(w1 >> 16); v.t = (int16_t)(w1 & 0xFFFF); } // already scaled
+-                        else if (where == 0x18) {
+-                            // Screen position (10.2 pixels): The New Tetris places its pieces this way.
+-                            float sx = (int16_t)(w1 >> 16) / 4.0f, sy = (int16_t)(w1 & 0xFFFF) / 4.0f;
+-                            float z = v.w > 0 ? clampf(v.z / v.w, -1.0f, 1.0f) : 0.0f;
+-                            v.x = sx / (fb_w() * 0.5f) - 1.0f;
+-                            v.y = 1.0f - sy / (fb_h() * 0.5f);
+-                            v.z = z; v.w = 1.0f;
+-                        } else if (where == 0x1C) {
+-                            // Screen depth, 16.16 in the viewport's 0..1022 range.
+-                            float zs = (int32_t)w1 / 65536.0f;
+-                            float zn = clampf((zs - 511.0f) / 511.0f, -1.0f, 1.0f);
+-                            v.z = zn * v.w;
+-                        }
+-                    }
+-                    break;
+-                }
+-                case 0x03: break;                                           // G_CULLDL (never culls)
+-                case 0x04: {                                                // G_BRANCH_Z: always take the near branch
+-                    flush();
+-                    pc = phys(rdphalf1);
+-                    break;
+-                }
+-                case 0x05:                                                  // G_TRI1
+-                    triangle(((w0 >> 16) & 0xFF) / 2, ((w0 >> 8) & 0xFF) / 2, (w0 & 0xFF) / 2);
+-                    break;
+-                case 0x06:                                                  // G_TRI2
+-                    triangle(((w0 >> 16) & 0xFF) / 2, ((w0 >> 8) & 0xFF) / 2, (w0 & 0xFF) / 2);
+-                    triangle(((w1 >> 16) & 0xFF) / 2, ((w1 >> 8) & 0xFF) / 2, (w1 & 0xFF) / 2);
+-                    break;
+-                case 0x07:                                                  // G_QUAD
+-                    triangle(((w0 >> 16) & 0xFF) / 2, ((w0 >> 8) & 0xFF) / 2, (w0 & 0xFF) / 2);
+-                    triangle(((w1 >> 16) & 0xFF) / 2, ((w1 >> 8) & 0xFF) / 2, (w1 & 0xFF) / 2);
+-                    break;
+-                case 0xD7: {                                                // G_TEXTURE
+-                    tex_scale_s = (w1 >> 16) / 65536.0f;
+-                    tex_scale_t = (w1 & 0xFFFF) / 65536.0f;
+-                    tex_tile = (w0 >> 8) & 7;
+-                    tex_on = (w0 & 0xFE) != 0;
+-                    break;
+-                }
+-                case 0xD8: {                                                // G_POPMTX
+-                    int n = w1 / 64;
+-                    mv_depth = std::max(0, mv_depth - n);
+-                    mvp_dirty = true;
+-                    break;
+-                }
+-                case 0xD9:                                                  // G_GEOMETRYMODE
+-                    flush();
+-                    geometry_mode = (geometry_mode & (w0 & 0xFFFFFF)) | w1;
+-                    break;
+-                case 0xDA: {                                                // G_MTX
+-                    uint32_t params = (w0 & 0xFF) ^ 1; // F3DEX2 inverts the push bit
+-                    float m[4][4];
+-                    load_matrix(phys(w1), m);
+-                    {
+-                        if (tracing) {
+-                            printf("[mtx] w0 %08X params %X depth %d\n", w0, params, mv_depth);
+-                            for (int i = 0; i < 4; i++) printf("   %10.4f %10.4f %10.4f %10.4f\n", m[i][0], m[i][1], m[i][2], m[i][3]);
+-                        }
+-                    }
+-                    if (params & 4) { // projection
+-                        if (params & 2) memcpy(proj, m, sizeof(m)); else mul(proj, m, proj);
+-                    } else {
+-                        if ((params & 1) && mv_depth < 9) { memcpy(mv_stack[mv_depth + 1], mv_stack[mv_depth], sizeof(m)); mv_depth++; }
+-                        if (params & 2) memcpy(mv_stack[mv_depth], m, sizeof(m)); else mul(mv_stack[mv_depth], m, mv_stack[mv_depth]);
+-                    }
+-                    mvp_dirty = true;
+-                    break;
+-                }
+-                case 0xDB: {                                                // G_MOVEWORD
+-                    int index = (w0 >> 16) & 0xFF, offset = w0 & 0xFFFF;
+-                    if (tracing) printf("[moveword] index %d offset %d value %08X\n", index, offset, w1);
+-                    if (index == 6) segments[(offset >> 2) & 0xF] = w1 & 0xFFFFFF;
+-                    else if (index == 2) num_lights = std::clamp((int)(w1 / 24), 0, 7);
+-                    break;
+-                }
+-                case 0xDC: {                                                // G_MOVEMEM
+-                    int index = w0 & 0xFF, offset = ((w0 >> 8) & 0xFF) * 8;
+-                    uint32_t a = phys(w1);
+-                    {
+-                        if (tracing) printf("[movemem] index %d offset %d addr %06X\n", index, offset, a);
+-                    }
+-                    if (index == 8) { // viewport
+-                        for (int i = 0; i < 4; i++) {
+-                            vp_scale[i] = (int16_t)r16(a + i * 2) / 4.0f;
+-                            vp_trans[i] = (int16_t)r16(a + 8 + i * 2) / 4.0f;
+-                        }
+-                    } else if (index == 10) { // lights: 0 and 24 are lookat, then lights
+-                        int l = (offset - 24) / 24;
+-                        if (l >= 0 && l < 8) {
+-                            light_col[l][0] = r8(a) / 255.0f; light_col[l][1] = r8(a + 1) / 255.0f; light_col[l][2] = r8(a + 2) / 255.0f;
+-                            float dx = (int8_t)r8(a + 8), dy = (int8_t)r8(a + 9), dz = (int8_t)r8(a + 10);
+-                            float len = std::sqrt(dx * dx + dy * dy + dz * dz);
+-                            if (len > 0) { dx /= len; dy /= len; dz /= len; }
+-                            light_dir[l][0] = dx; light_dir[l][1] = dy; light_dir[l][2] = dz;
+-                        }
+-                    }
+-                    break;
+-                }
+-                case 0xDD:                                                  // G_LOAD_UCODE
+-                    if (tracing || ucode_logs < 10) { ucode_logs++; printf("[gfx] G_LOAD_UCODE text %08X data %08X size %X\n", w1, rdphalf1, (w0 & 0xFFFF) + 1); }
+-                    break;
+-                case 0xDE: {                                                // G_DL
+-                    if (((w0 >> 16) & 0xFF) == 0) { if (sp >= 18) return; stack[sp++] = pc; }
+-                    pc = phys(w1);
+-                    break;
+-                }
+-                case 0xDF:                                                  // G_ENDDL
+-                    if (sp == 0) return;
+-                    pc = stack[--sp];
+-                    break;
+-                case 0xE1: rdphalf1 = w1; break;                            // G_RDPHALF_1
+-                case 0xF1: rdphalf2 = w1; break;                            // G_RDPHALF_2
+-                case 0xE2: case 0xE3: {                                     // G_SETOTHERMODE_L / _H
+-                    int len = (w0 & 0xFF) + 1, shift = 32 - ((w0 >> 8) & 0xFF) - len;
+-                    if (shift < 0) shift = 0;
+-                    uint32_t mask = (len >= 32 ? 0xFFFFFFFFu : ((1u << len) - 1)) << shift;
+-                    flush();
+-                    if (op == 0xE2) othermode_l = (othermode_l & ~mask) | (w1 & mask);
+-                    else othermode_h = (othermode_h & ~mask) | (w1 & mask);
+-                    break;
+-                }
+                 case 0xEF:                                                  // G_RDPSETOTHERMODE
+                     flush();
+                     othermode_h = w0 & 0xFFFFFF;
+@@ -1245,8 +1209,8 @@
+                     // Followed by RDPHALF_1 (s, t) and RDPHALF_2 (dsdx, dtdy).
+                     for (int i = 0; i < 2; i++) {
+                         uint32_t a0 = r32(pc), a1 = r32(pc + 4);
+-                        if ((a0 >> 24) == 0xE1) { h1 = a1; pc += 8; }
+-                        else if ((a0 >> 24) == 0xF1) { h2 = a1; pc += 8; }
++                        if ((a0 >> 24) == 0xB4) { h1 = a1; pc += 8; }
++                        else if ((a0 >> 24) == 0xB3) { h2 = a1; pc += 8; }
+                     }
+                     tex_rect(w0, w1, h1, h2, op == 0xE5);
+                     break;

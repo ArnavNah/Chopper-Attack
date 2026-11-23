@@ -184,7 +184,7 @@
      ctx->r12 = MEM_H(ctx->r12, 0X6ACC);
      // 0x8001FFA4: lhu         $v1, -0x2E44($v1)
      ctx->r3 = MEM_HU(ctx->r3, -0X2E44);
-+#ifdef _WIN32
++#if defined(_WIN32) || defined(__vita__)
 +    // In the left-handed layout the C-buttons select cameras. Keyboard
 +    // movement is handled separately above and should not toggle the view.
 +    if (ctx->r12 == 0) ctx->r3 &= ~((gpr)chopper_flight_camera_mask());
@@ -196,7 +196,7 @@
      // 0x80020B00: swc1        $f0, 0xE8($sp)
      MEM_W(0XE8, ctx->r29) = ctx->f0.u32l;
  L_80020B04:
-+#ifdef _WIN32
++#if defined(_WIN32) || defined(__vita__)
 +    // The stock code has normalized flight movement to the D-pad bits here.
 +    chopper_apply_flight_controls(rdram, ctx);
 +#endif
@@ -225,8 +225,8 @@
  L_80022C5C:
      // 0x80022C5C: lhu         $t8, -0x2E44($t8)
      ctx->r24 = MEM_HU(ctx->r24, -0X2E44);
-+#ifdef _WIN32
-+    // The Windows secondary-weapon binding uses R in both controller modes.
++#if defined(_WIN32) || defined(__vita__)
++    // The secondary-weapon binding uses R in both controller modes.
 +    ctx->r2 |= 0x10;
 +#endif
      // 0x80022C60: and         $t9, $t8, $v0
@@ -606,7 +606,15 @@
 +}
 --- a/recomp/funcs_30.c
 +++ b/recomp/funcs_30.c
-@@ -832,10 +832,12 @@
+@@ -1,6 +1,7 @@
+ #include "recomp.h"
+ #include "trace.h"
+ #include "funcs.h"
++#include "chopper_recomp_hooks.h"
+ 
+ RECOMP_FUNC void func_8005F3E0(uint8_t* rdram, recomp_context* ctx) {
+     uint64_t hi = 0, lo = 0, result = 0;
+@@ -832,10 +833,12 @@
      // 0x8005FA3C: addiu       $sp, $sp, 0x28
      ctx->r29 = ADD32(ctx->r29, 0X28);
  ;}
@@ -620,7 +628,7 @@
      // 0x8005FA40: addiu       $sp, $sp, -0x30
      ctx->r29 = ADD32(ctx->r29, -0X30);
      // 0x8005FA44: sw          $ra, 0x1C($sp)
-@@ -1205,6 +1207,7 @@
+@@ -1205,6 +1208,7 @@
  
      // 0x8005FC6C: nop
  
@@ -628,7 +636,7 @@
      // 0x8005FC70: addiu       $sp, $sp, -0x48
      ctx->r29 = ADD32(ctx->r29, -0X48);
      // 0x8005FC74: sw          $a0, 0x48($sp)
-@@ -1992,6 +1995,9 @@
+@@ -1992,6 +1996,9 @@
      TRACE_RETURN()
      return;
  ;}
@@ -1088,7 +1096,14 @@
          // 0x800084B8: lbu         $t1, 0xC($v0)
 --- a/recomp/funcs_6.c
 +++ b/recomp/funcs_6.c
-@@ -2335,7 +2335,9 @@
+@@ -1,5 +1,6 @@
+ #include "recomp.h"
+ #include "trace.h"
+ #include "funcs.h"
++#include "chopper_recomp_hooks.h"
+ 
+ RECOMP_FUNC void func_80009874(uint8_t* rdram, recomp_context* ctx) {
+@@ -2335,7 +2336,9 @@
      ctx->r2 = S32(0X800E << 16);
      // 0x8000A418: jr          $ra
      // 0x8000A41C: lh          $v0, -0x2D26($v0)
@@ -1099,7 +1114,7 @@
      TRACE_RETURN()
      return;
      // 0x8000A41C: lh          $v0, -0x2D26($v0)
-@@ -2423,6 +2425,9 @@
+@@ -2423,6 +2426,9 @@
      after_0:
      // 0x8000A480: beq         $v0, $zero, L_8000A4B0
      if (ctx->r2 == 0) {
@@ -1109,7 +1124,7 @@
          // 0x8000A484: lui         $a0, 0x800E
          ctx->r4 = S32(0X800E << 16);
              goto L_8000A4B0;
-@@ -2477,6 +2482,9 @@
+@@ -2477,6 +2483,9 @@
      after_2:
      // 0x8000A4CC: beq         $v0, $zero, L_8000A4FC
      if (ctx->r2 == 0) {
