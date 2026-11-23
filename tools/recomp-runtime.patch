@@ -161,13 +161,87 @@
  RECOMP_FUNC void func_8001BBC0(uint8_t* rdram, recomp_context* ctx) {
      uint64_t hi = 0, lo = 0, result = 0;
      int c1cs = 0;
---- a/recomp/funcs_13.c
-+++ b/recomp/funcs_13.c
-@@ -2,10 +2,12 @@
+--- a/recomp/funcs_12.c
++++ b/recomp/funcs_12.c
+@@ -1,6 +1,7 @@
+ #include "recomp.h"
  #include "trace.h"
  #include "funcs.h"
- 
++#include "chopper_recomp_hooks.h"
+
+ RECOMP_FUNC void func_8001F704(uint8_t* rdram, recomp_context* ctx) {
+     uint64_t hi = 0, lo = 0, result = 0;
+@@ -1586,7 +1587,7 @@ L_8001FF80:
+     // 0x8001FF80: jal         0x800233C4
+     // 0x8001FF84: or          $a0, $s4, $zero
+     ctx->r4 = ctx->r20 | 0;
+-    func_800233C4(rdram, ctx);
++    chopper_draw_lock(rdram, ctx);
+         goto after_23;
+     // 0x8001FF84: or          $a0, $s4, $zero
+     ctx->r4 = ctx->r20 | 0;
+@@ -1611,6 +1612,11 @@ L_8001FF80:
+     ctx->r12 = MEM_H(ctx->r12, 0X6ACC);
+     // 0x8001FFA4: lhu         $v1, -0x2E44($v1)
+     ctx->r3 = MEM_HU(ctx->r3, -0X2E44);
++#ifdef _WIN32
++    // In the left-handed layout the C-buttons select cameras. Keyboard
++    // movement is handled separately above and should not toggle the view.
++    if (ctx->r12 == 0) ctx->r3 &= ~((gpr)chopper_flight_camera_mask());
++#endif
+     // 0x8001FFA8: beq         $t4, $zero, L_8001FFC8
+     if (ctx->r12 == 0) {
+         // 0x8001FFAC: or          $v0, $v1, $zero
+@@ -3631,6 +3637,10 @@ RECOMP_FUNC void func_80020A90(uint8_t* rdram, recomp_context* ctx) {
+     // 0x80020B00: swc1        $f0, 0xE8($sp)
+     MEM_W(0XE8, ctx->r29) = ctx->f0.u32l;
+ L_80020B04:
++#ifdef _WIN32
++    // The stock code has normalized flight movement to the D-pad bits here.
++    chopper_apply_flight_controls(rdram, ctx);
++#endif
+     // 0x80020B04: lh          $t6, 0x154($s0)
+     ctx->r14 = MEM_H(ctx->r16, 0X154);
+     // 0x80020B08: beq         $t6, $zero, L_80020B78
+@@ -9377,7 +9387,7 @@ L_80022884:
+     // 0x80022884: jal         0x8003F3A4
+     // 0x80022888: lw          $a2, 0x2C($sp)
+     ctx->r6 = MEM_W(ctx->r29, 0X2C);
+-    func_8003F3A4(rdram, ctx);
++    chopper_aim_cannon(rdram, ctx);
+         goto after_2;
+     // 0x80022888: lw          $a2, 0x2C($sp)
+     ctx->r6 = MEM_W(ctx->r29, 0X2C);
+@@ -9873,7 +9883,7 @@ L_80022B1C:
+     // 0x80022B2C: jal         0x80040194
+     // 0x80022B30: sw          $t4, 0x14($sp)
+     MEM_W(0X14, ctx->r29) = ctx->r12;
+-    func_80040194(rdram, ctx);
++    chopper_aim_secondary(rdram, ctx);
+         goto after_3;
+     // 0x80022B30: sw          $t4, 0x14($sp)
+     MEM_W(0X14, ctx->r29) = ctx->r12;
+@@ -10095,6 +10105,10 @@ L_80022C44:
+ L_80022C5C:
+     // 0x80022C5C: lhu         $t8, -0x2E44($t8)
+     ctx->r24 = MEM_HU(ctx->r24, -0X2E44);
++#ifdef _WIN32
++    // The Windows secondary-weapon binding uses R in both controller modes.
++    ctx->r2 |= 0x10;
++#endif
+     // 0x80022C60: and         $t9, $t8, $v0
+     ctx->r25 = ctx->r24 & ctx->r2;
+     // 0x80022C64: beq         $t9, $zero, L_80022C80
+--- a/recomp/funcs_13.c
++++ b/recomp/funcs_13.c
+@@ -1,11 +1,14 @@
+ #include "recomp.h"
+ #include "trace.h"
+ #include "funcs.h"
+-
 -RECOMP_FUNC void func_800233C4(uint8_t* rdram, recomp_context* ctx) {
++#include "chopper_recomp_hooks.h"
++
 +static void func_800233C4_entry(uint8_t* rdram, recomp_context* ctx, unsigned entry) {
      uint64_t hi = 0, lo = 0, result = 0;
      int c1cs = 0;
@@ -177,7 +251,16 @@
      // 0x800233C4: lui         $t6, 0x8013
      ctx->r14 = S32(0X8013 << 16);
      // 0x800233C8: lh          $t6, -0x6BA6($t6)
-@@ -802,6 +804,7 @@
+@@ -282,7 +285,7 @@
+     // 0x80023550: jal         0x8000C94C
+     // 0x80023554: sh          $t0, 0x42($sp)
+     MEM_H(0X42, ctx->r29) = ctx->r8;
+-    func_8000C94C(rdram, ctx);
++    chopper_aim_reticle(rdram, ctx, MEM_W(0XE0, ctx->r29));
+         goto after_4;
+     // 0x80023554: sh          $t0, 0x42($sp)
+     MEM_H(0X42, ctx->r29) = ctx->r8;
+@@ -802,6 +805,7 @@
  
      // 0x800237DC: nop
  
@@ -185,7 +268,7 @@
      // 0x800237E0: addiu       $sp, $sp, -0x30
      ctx->r29 = ADD32(ctx->r29, -0X30);
      // 0x800237E4: sw          $s2, 0x1C($sp)
-@@ -1314,6 +1317,9 @@
+@@ -1314,6 +1318,9 @@
      // 0x80023A98: addiu       $sp, $sp, 0x30
      ctx->r29 = ADD32(ctx->r29, 0X30);
  ;}

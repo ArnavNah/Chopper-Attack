@@ -86,6 +86,7 @@ static LONG WINAPI CrashHandler(EXCEPTION_POINTERS* ep) {
 #include "librecomp/helpers.hpp"
 #include "librecomp/rsp.hpp"
 #include "rt64_render_context.h"
+#include "controls.h"
 
 // Forward declaration of recompiled entrypoint
 extern "C" void recomp_entrypoint(uint8_t* rdram, recomp_context* ctx);
@@ -362,6 +363,12 @@ static void update_gfx(void*) {
                 break;
 
             case SDL_KEYDOWN:
+#ifdef _WIN32
+                if (event.key.keysym.scancode == SDL_SCANCODE_F1 && !event.key.repeat) {
+                    chopper::controls::edit(g_window);
+                    break;
+                }
+#endif
                 if ((event.key.keysym.scancode == SDL_SCANCODE_RETURN && (event.key.keysym.mod & KMOD_ALT)) ||
                     event.key.keysym.scancode == SDL_SCANCODE_F11) {
                     uint32_t current_flags = SDL_GetWindowFlags(g_window);
@@ -399,6 +406,8 @@ static void update_gfx(void*) {
                 break;
         }
     }
+    std::lock_guard<std::mutex> lock(g_controller_mutex);
+    chopper::controls::poll(g_controllers.empty() ? nullptr : g_controllers.front());
 }
 
 // ============================================================================
@@ -416,95 +425,16 @@ static bool get_input(int controller_num, uint16_t* buttons, float* x, float* y)
         return false;
     }
 
-    uint16_t btn = 0;
-    float stick_x = 0.0f;
-    float stick_y = 0.0f;
-
-    static uint64_t s_input_start_time = 0;
-    if (s_input_start_time == 0) s_input_start_time = GetTickCount64();
-    uint64_t elapsed_ms = GetTickCount64() - s_input_start_time;
-
-    if (g_auto_start && elapsed_ms > 4000) {
-        if ((elapsed_ms % 2000) < 300) {
-            btn |= 0x1000; // N64 Start button pulse
-        }
+    auto input = chopper::controls::read();
+    static const uint64_t input_start_time = GetTickCount64();
+    const uint64_t elapsed_ms = GetTickCount64() - input_start_time;
+    if (g_auto_start && elapsed_ms > 4000 && elapsed_ms % 2000 < 300) {
+        input.buttons |= 0x1000;
     }
 
-    // 1. Check Gamepad
-    {
-        std::lock_guard<std::mutex> lock(g_controller_mutex);
-        if (!g_controllers.empty() && g_controllers[0] != nullptr) {
-            SDL_GameController* pad = g_controllers[0];
-
-            // Analog Stick
-            int16_t raw_x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
-            int16_t raw_y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
-
-            constexpr float deadzone = 0.15f;
-            float nx = raw_x / 32767.0f;
-            float ny = raw_y / -32767.0f; // Invert Y (N64 Up is positive)
-
-            if (std::abs(nx) > deadzone) stick_x = nx;
-            if (std::abs(ny) > deadzone) stick_y = ny;
-
-            // Buttons
-            if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_A)) btn |= 0x8000; // N64 A
-            if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_B) ||
-                SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_X)) btn |= 0x4000; // N64 B
-            if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_START)) btn |= 0x1000; // N64 Start
-
-            // Z Trigger: Left Trigger or Left Shoulder
-            if (SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > 8000 ||
-                SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_LEFTSHOULDER)) btn |= 0x2000; // N64 Z
-
-            // R: Right Trigger or Right Shoulder
-            if (SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > 8000 ||
-                SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER)) btn |= 0x0010; // N64 R
-
-            // D-Pad
-            if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_UP)) btn |= 0x0800;
-            if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_DOWN)) btn |= 0x0400;
-            if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_LEFT)) btn |= 0x0200;
-            if (SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)) btn |= 0x0100;
-
-            // Right stick as C-Buttons
-            int16_t rx = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTX);
-            int16_t ry = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_RIGHTY);
-            if (ry < -16000 || SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_Y)) btn |= 0x0008; // C-Up
-            if (ry > 16000) btn |= 0x0004; // C-Down
-            if (rx < -16000) btn |= 0x0002; // C-Left
-            if (rx > 16000) btn |= 0x0001; // C-Right
-        }
-    }
-
-    // 2. Keyboard Fallback / Simultaneous Input
-    const Uint8* keys = SDL_GetKeyboardState(nullptr);
-    if (keys != nullptr) {
-        if (keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP]) stick_y += 1.0f;
-        if (keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN]) stick_y -= 1.0f;
-        if (keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT]) stick_x -= 1.0f;
-        if (keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT]) stick_x += 1.0f;
-
-        if (keys[SDL_SCANCODE_SPACE] || keys[SDL_SCANCODE_J]) btn |= 0x8000; // N64 A
-        if (keys[SDL_SCANCODE_K] || keys[SDL_SCANCODE_X]) btn |= 0x4000;     // N64 B
-        if (keys[SDL_SCANCODE_LSHIFT] || keys[SDL_SCANCODE_Z]) btn |= 0x2000;// N64 Z
-        if (keys[SDL_SCANCODE_RETURN]) btn |= 0x1000;                        // N64 Start
-        if (keys[SDL_SCANCODE_E] || keys[SDL_SCANCODE_RSHIFT]) btn |= 0x0010;// N64 R
-        if (keys[SDL_SCANCODE_Q]) btn |= 0x0020;                             // N64 L
-
-        // C-Buttons (I, M, U, O / Numpad 8, 2, 4, 6)
-        if (keys[SDL_SCANCODE_I] || keys[SDL_SCANCODE_KP_8]) btn |= 0x0008; // C-Up
-        if (keys[SDL_SCANCODE_M] || keys[SDL_SCANCODE_KP_2]) btn |= 0x0004; // C-Down
-        if (keys[SDL_SCANCODE_U] || keys[SDL_SCANCODE_KP_4]) btn |= 0x0002; // C-Left
-        if (keys[SDL_SCANCODE_O] || keys[SDL_SCANCODE_KP_6]) btn |= 0x0001; // C-Right
-    }
-
-    stick_x = std::clamp(stick_x, -1.0f, 1.0f);
-    stick_y = std::clamp(stick_y, -1.0f, 1.0f);
-
-    *buttons = btn;
-    *x = stick_x;
-    *y = stick_y;
+    *buttons = input.buttons;
+    *x = input.x;
+    *y = input.y;
     return true;
 }
 
@@ -594,6 +524,7 @@ int main(int argc, char** argv) {
 
     std::filesystem::path current_dir = std::filesystem::current_path();
     recomp::register_config_path(current_dir);
+    chopper::controls::load();
 
     // Register Chopper Attack game entry
     recomp::GameEntry chopper_game = {

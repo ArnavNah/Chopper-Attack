@@ -13,7 +13,7 @@ Unlike traditional emulation, this is a **fully native PC executable** (`Chopper
 - **Authentic 4:3 Aspect Ratio** with crisp modern scaling
 - **Low-Latency Audio** output via SDL2 and WASAPI
 - **Automatic Controller Support**: Native XInput (Xbox), PlayStation DualShock/DualSense, Switch Pro, and generic DirectInput gamepads
-- **Keyboard Fallback**: Fully playable with arrow keys/WASD and keyboard buttons
+- **Keyboard Controls**: Fly and turn with WASD. Weapons aim at enemies in view.
 - **Bring Your Own ROM (BYOR)**: Automatically detects `.z64`, `.n64`, and `.v64` ROMs with in-memory byte-order handling and a native Windows file selection dialog
 
 ---
@@ -46,27 +46,47 @@ Place your legally dumped Chopper Attack ROM into the `rom/` folder:
 ### Gamepad (Xbox / PlayStation / Generic)
 | Button | Action |
 | :--- | :--- |
-| **Left Analog Stick** | Steer Helicopter (Pitch & Roll) |
-| **D-Pad** | Directional control |
-| **A Button** (Cross) | Primary Weapon (Vulcan Cannon / Machine Gun) |
-| **B Button** (Circle) | Secondary Weapon (Homing Missiles / Cluster Bombs) |
-| **Right Bumper / RT** | Strafe Right |
-| **Left Bumper / LT** | Strafe Left / Air Brake |
+| **Left Stick Up / Down** | Fly forward / backward with automatic tilt |
+| **Right Stick Left / Right** | Turn the chopper left / right |
+| **Left Stick / D-Pad** | Navigate menus |
+| **A Button** (Cross) | Confirm / previous weapon |
+| **B Button** (Circle) | Next weapon |
+| **Right Bumper / RT** | Launch the selected weapon |
+| **Left Bumper / LT** | Fire the Vulcan cannon |
 | **Start** | Pause / Mission Menu |
+
+### Remap controls on Windows
+
+Press **F1** at the title screen or while paused. Choose an N64 action, then
+select its primary and alternate keyboard or gamepad inputs. Choose **None**
+to clear a binding or **Restore Defaults** to reset all bindings. **Save**
+applies the changes and keeps them for future launches.
 
 ### Keyboard
 | Key | Action |
 | :--- | :--- |
-| **W / Up Arrow** | Pitch Nose Down (Fly Forward) |
-| **S / Down Arrow** | Pitch Nose Up (Fly Backward) |
-| **A / Left Arrow** | Turn Left |
-| **D / Right Arrow** | Turn Right |
-| **Space / J** | N64 A button |
-| **X / K** | N64 B button |
-| **Z / Left Shift** | N64 Z trigger |
-| **Q / E** | N64 L / R buttons |
+| **W / S** | Fly forward / reverse |
+| **A / D** | Turn left / right and advance with one key |
+| **Arrow keys** | Navigate menus or aim manually |
+| **Space / J** | Confirm / previous weapon |
+| **X / K** | Next weapon |
+| **Z / Left Shift** | Fire the Vulcan cannon |
+| **E / Right Shift** | Launch the selected weapon |
 | **Enter** | Start / Pause |
 | **Esc** | Quit Game |
+
+The keyboard and gamepad flight controls work with either setting under
+**Control** in the game's Options screen. To rebind twin-stick movement,
+use the **Gamepad Fly** and **Gamepad Turn** entries in the F1 menu.
+
+The chopper tilts automatically as you fly forward, turn, or reverse.
+Lock brackets mark the enemy the aim assist has picked, including when the
+Vulcan cannon is your only weapon.
+
+When you fire the Vulcan cannon, rockets, or missiles, aim assist favors live
+enemies that are close to the chopper and near the center of the screen. Cluster bombs
+get a downward launch angle when a ground target is within their drop range.
+The dummy countermeasure keeps its normal defensive behavior.
 
 ---
 

@@ -60,7 +60,7 @@ endif()
 add_library(RecompiledFuncs STATIC)
 
 file(GLOB FUNC_C_SOURCES ${CMAKE_SOURCE_DIR}/recomp/*.c)
-target_sources(RecompiledFuncs PRIVATE ${FUNC_C_SOURCES})
+target_sources(RecompiledFuncs PRIVATE ${FUNC_C_SOURCES} src/aim_assist.c)
 
 target_include_directories(RecompiledFuncs PRIVATE
     ${CMAKE_SOURCE_DIR}/include
@@ -79,6 +79,7 @@ endif()
 # ChopperAttack executable
 add_executable(ChopperAttack
     src/main.cpp
+    src/controls.cpp
     rsp/aspMain.cpp
     src/rt64_render_context.cpp
     src/register_overlays.cpp
@@ -103,6 +104,8 @@ target_include_directories(ChopperAttack PRIVATE
 )
 
 if (WIN32)
+    enable_language(RC)
+    target_sources(ChopperAttack PRIVATE src/controls.rc)
     target_include_directories(ChopperAttack PRIVATE
         ${sdl2_SOURCE_DIR}/include
     )

@@ -1,6 +1,7 @@
 #include "recomp.h"
 #include "trace.h"
 #include "funcs.h"
+#include "chopper_recomp_hooks.h"
 
 static void func_800233C4_entry(uint8_t* rdram, recomp_context* ctx, unsigned entry) {
     uint64_t hi = 0, lo = 0, result = 0;
@@ -284,7 +285,7 @@ L_80023538:
     // 0x80023550: jal         0x8000C94C
     // 0x80023554: sh          $t0, 0x42($sp)
     MEM_H(0X42, ctx->r29) = ctx->r8;
-    func_8000C94C(rdram, ctx);
+    chopper_aim_reticle(rdram, ctx, MEM_W(0XE0, ctx->r29));
         goto after_4;
     // 0x80023554: sh          $t0, 0x42($sp)
     MEM_H(0X42, ctx->r29) = ctx->r8;

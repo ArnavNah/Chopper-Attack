@@ -1,0 +1,26 @@
+#include <windows.h>
+#include "controls_resource.h"
+
+IDD_CONTROLS DIALOGEX 0, 0, 288, 208
+STYLE DS_MODALFRAME | DS_CENTER | DS_SETFONT | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Chopper Attack Controls"
+FONT 9, "Segoe UI"
+BEGIN
+    LTEXT "Choose an action, then select its keyboard or gamepad inputs.", -1, 12, 10, 263, 12
+    LTEXT "&Action", -1, 12, 33, 75, 10
+    COMBOBOX IDC_ACTION, 94, 30, 182, 225, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX "Keyboard", -1, 12, 54, 264, 48
+    LTEXT "Primary &key", -1, 20, 66, 120, 10
+    COMBOBOX IDC_KEY_1, 20, 79, 122, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Alternate k&ey", -1, 146, 66, 120, 10
+    COMBOBOX IDC_KEY_2, 146, 79, 122, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    GROUPBOX "Gamepad", -1, 12, 109, 264, 48
+    LTEXT "&Primary input", -1, 20, 121, 120, 10
+    COMBOBOX IDC_PAD_1, 20, 134, 122, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "A&lternate input", -1, 146, 121, 120, 10
+    COMBOBOX IDC_PAD_2, 146, 134, 122, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT "Choose None to clear a binding. F1 opens this menu.", -1, 12, 165, 264, 11
+    PUSHBUTTON "&Restore Defaults", IDC_DEFAULTS, 12, 184, 88, 15
+    DEFPUSHBUTTON "&Save", IDOK, 165, 184, 52, 15
+    PUSHBUTTON "Cancel", IDCANCEL, 224, 184, 52, 15
+END

@@ -1,0 +1,7 @@
+#define IDD_CONTROLS 101
+#define IDC_ACTION 1001
+#define IDC_KEY_1 1002
+#define IDC_KEY_2 1003
+#define IDC_PAD_1 1004
+#define IDC_PAD_2 1005
+#define IDC_DEFAULTS 1006

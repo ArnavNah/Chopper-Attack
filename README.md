@@ -43,8 +43,6 @@ A clean-room native PC port of the Nintendo 64 game **Chopper Attack** (SETA / M
 2. Place your legally owned copy of the N64 game ROM inside `package/rom/chopper_attack.z64` (or double-click the executable to use the Windows file picker).
 3. Run `ChopperAttack.exe` or `run.bat`.
 
----
-
 ## 🛠️ Building From Source
 
 ### Prerequisites (Windows 11)
@@ -80,22 +78,45 @@ For a fresh clone, open a Visual Studio developer shell and run `powershell -Exe
 ## 🎮 Controls
 
 ### Gamepad (Xbox / PlayStation / Switch Pro / DirectInput)
-- **Left Stick / D-Pad**: Pitch & Roll (Fly & Aim)
-- **A Button (Cross)**: Primary Weapon (Vulcan Cannon)
-- **B Button (Circle)**: Secondary Weapon (Missiles / Bombs)
-- **Left Trigger / L1**: Strafe Left / Air Brake
-- **Right Trigger / R1**: Strafe Right
+- **Left Stick Up / Down**: Fly forward / backward with automatic tilt
+- **Right Stick Left / Right**: Turn the chopper left / right
+- **Left Stick / D-Pad**: Navigate menus
+- **A Button (Cross)**: Confirm / previous weapon
+- **B Button (Circle)**: Next weapon
+- **Left Trigger / L1**: Fire the Vulcan cannon
+- **Right Trigger / R1**: Launch the selected weapon
 - **Start**: Pause / In-Game Menu
 
+### Remap controls on Windows
+
+Press **F1** at the title screen or while paused. Choose an N64 action, then
+select its primary and alternate keyboard or gamepad inputs. Choose **None**
+to clear a binding or **Restore Defaults** to reset all bindings. **Save**
+applies the changes and keeps them for future launches.
+
 ### Keyboard
-- **W / S / Up / Down**: Pitch Nose Down / Up
-- **A / D / Left / Right**: Turn Left / Right
-- **Space / J**: N64 A button
-- **X / K**: N64 B button
-- **Z / Left Shift**: N64 Z trigger
-- **Q / E**: Strafe Left / Right
+- **W / S**: Fly forward / reverse
+- **A / D**: Turn left / right and advance with one key
+- **Arrow keys**: Navigate menus or aim manually
+- **Space / J**: Confirm / previous weapon
+- **X / K**: Next weapon
+- **Z / Left Shift**: Fire the Vulcan cannon
+- **E / Right Shift**: Launch the selected weapon
 - **Enter**: Start / Pause
 - **Esc**: Exit
+
+The keyboard and gamepad flight controls work with either setting under
+**Control** in the game's Options screen. To rebind twin-stick movement,
+use the **Gamepad Fly** and **Gamepad Turn** entries in the F1 menu.
+
+The chopper tilts automatically as you fly forward, turn, or reverse.
+Lock brackets mark the enemy the aim assist has picked, including when the
+Vulcan cannon is your only weapon.
+
+When you fire the Vulcan cannon, rockets, or missiles, aim assist favors live
+enemies that are close to the chopper and near the center of the screen. Cluster bombs
+get a downward launch angle when a ground target is within their drop range.
+The dummy countermeasure keeps its normal defensive behavior.
 
 ---
 
