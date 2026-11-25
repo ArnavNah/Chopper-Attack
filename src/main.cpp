@@ -364,6 +364,12 @@ static void update_gfx(void*) {
 
             case SDL_KEYDOWN:
 #ifdef _WIN32
+                if (event.key.keysym.scancode == SDL_SCANCODE_F2 && !event.key.repeat) {
+                    const bool original = chopper::controls::toggle_original_flight();
+                    SDL_SetWindowTitle(g_window, original ? "Chopper Attack (Recompiled) - Original N64 flight"
+                                                         : "Chopper Attack (Recompiled) - Twin-stick flight");
+                    break;
+                }
                 if (event.key.keysym.scancode == SDL_SCANCODE_F1 && !event.key.repeat) {
                     chopper::controls::edit(g_window);
                     break;

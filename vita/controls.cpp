@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <psp2/ctrl.h>
+#include <psp2/kernel/clib.h>
 
 #include "chopper_recomp_hooks.h"
 
@@ -27,6 +28,7 @@ struct Pad {
 };
 
 std::atomic<uint32_t> sticks{0x80808080};
+std::atomic<bool> original_flight{false};
 
 float axis(uint8_t value) {
     constexpr float deadzone = 0.2f;
@@ -45,6 +47,17 @@ bool get_input(int controller, uint16_t* buttons, float* x, float* y) {
                  (uint32_t{pad.rx} << 16) | (uint32_t{pad.ry} << 24),
                  std::memory_order_relaxed);
     if (!sampled) data.buttons = 0;
+
+    constexpr uint32_t layout_chord = SCE_CTRL_SELECT | SCE_CTRL_TRIANGLE;
+    static bool chord_held = false;
+    const bool toggle_pressed = (data.buttons & layout_chord) == layout_chord;
+    if (toggle_pressed && !chord_held) {
+        const bool original = !original_flight.load();
+        original_flight.store(original);
+        sceClibPrintf("[Chopper Attack] Flight layout: %s\n", original ? "Original N64" : "Twin-stick");
+    }
+    chord_held = toggle_pressed;
+    if (toggle_pressed) data.buttons &= ~layout_chord;
 
     *buttons = 0;
     const auto map = [&](uint32_t vita_button, uint16_t n64_button) {
@@ -93,10 +106,11 @@ ultramodern::input::callbacks_t chopper::vita::initialize_controls() {
 }
 
 extern "C" uint16_t chopper_flight_camera_mask() {
-    return c_left | c_right;
+    return original_flight.load() ? 0 : c_left | c_right;
 }
 
 extern "C" void chopper_apply_flight_controls(uint8_t* rdram, recomp_context* ctx) {
+    if (original_flight.load()) return;
     const uint32_t pad = sticks.load(std::memory_order_relaxed);
     const float thrust = -axis(static_cast<uint8_t>(pad >> 8));
     const float turn = axis(static_cast<uint8_t>(pad >> 16));
@@ -106,8 +120,8 @@ extern "C" void chopper_apply_flight_controls(uint8_t* rdram, recomp_context* ct
     if (thrust < 0.0f) buttons |= d_down;
     MEM_H(0xE2, ctx->r29) = buttons;
 
-    const fpr yaw{.fl = turn * 5.0f};
-    const fpr pitch{.fl = thrust * 2.0f};
+    const fpr yaw{.fl = turn * 10.0f};
+    const fpr pitch{.fl = thrust * 4.0f};
     MEM_W(0xE8, ctx->r29) = yaw.u32l;
     MEM_W(0xEC, ctx->r29) = pitch.u32l;
 }

@@ -52,9 +52,11 @@ public:
             return;
         }
         n64gfx::Config config;
-        config.scale = 1;
+        // Supersample the game framebuffers before the final 960x544 blit.
+        config.scale = 2;
         config.output_width = screen_width;
         config.output_height = screen_height;
+        config.direct_to_screen = false;
         graphics = std::make_unique<n64gfx::Renderer>(rdram, config);
         report("Vita graphics initialized.");
     }
@@ -92,7 +94,7 @@ public:
         }
         const uint32_t origin = vi->VI_ORIGIN_REG;
         if (!frame_pending && !blacked && origin == previous_origin) return;
-        if (graphics->end_frame() || graphics->present(origin)) {
+        if (graphics->present(origin)) {
             vglSwapBuffers(GL_FALSE);
             if (!first_frame) {
                 first_frame = true;

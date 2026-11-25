@@ -47,7 +47,8 @@ A clean-room native PC port of the Nintendo 64 game **Chopper Attack** (SETA / M
 
 The experimental Vita application uses the recompiled game and RSP audio code
 with Vita-native audio and input, plus a Fast3D renderer on vitaGL. The renderer
-uses the 960×544 display for perspective scenes and centers the 4:3 menus and HUD.
+renders the widescreen game buffers at 848×480, then scales them to the Vita's
+960×544 display. Menus and the HUD keep their original 4:3 proportions.
 The port uses the GPL-3.0 renderer and Vita runtime adaptations from
 [The New Tetris: Recompiled](https://github.com/SeveerJ/tnt64-recomp).
 The Fast3D and widescreen changes are in `vita/fast3d-renderer.patch`.
@@ -88,8 +89,14 @@ from the ROM at runtime.
 | D-pad or left stick | Navigate menus |
 | Right stick | N64 C-buttons in menus |
 | Triangle | N64 C-Up |
+| Select + Triangle | Switch between twin-stick and original N64 flight |
 | Start | Pause |
 | Hold Start + Select for 2 seconds | Quit |
+
+On Windows, press F2 to switch flight layouts. The original layout sends the
+left stick, D-pad, and C-buttons through the game's stock movement code. The
+right stick supplies the C-buttons on both platforms. The game’s handedness
+setting determines whether the D-pad or C-buttons handle movement.
 
 ---
 

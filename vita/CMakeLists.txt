@@ -73,5 +73,5 @@ if(CHOPPER_VITA_APP)
 
     vita_create_self(eboot.bin ChopperAttackVita UNSAFE)
     vita_create_vpk(ChopperAttack.vpk CHOP00001 eboot.bin
-        VERSION "01.00" NAME "Chopper Attack Recompiled")
+        VERSION "01.02" NAME "Chopper Attack Recompiled")
 endif()

@@ -1,6 +1,7 @@
 #include "recomp.h"
 #include "trace.h"
 #include "funcs.h"
+#include "chopper_recomp_hooks.h"
 
 RECOMP_FUNC void func_8003DE20(uint8_t* rdram, recomp_context* ctx) {
     uint64_t hi = 0, lo = 0, result = 0;
@@ -5105,7 +5106,7 @@ L_8003FA78:
     // 0x8003FADC: jal         0x8001F2CC
     // 0x8003FAE0: lh          $a1, 0x78($s0)
     ctx->r5 = MEM_H(ctx->r16, 0X78);
-    func_8001F2CC(rdram, ctx);
+    chopper_cannon_ground_collision(rdram, ctx);
         goto after_0;
     // 0x8003FAE0: lh          $a1, 0x78($s0)
     ctx->r5 = MEM_H(ctx->r16, 0X78);

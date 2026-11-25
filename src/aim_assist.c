@@ -186,11 +186,13 @@ static Target choose_target(uint8_t* rdram, recomp_context* ctx, gpr player, Vec
             actor = next;
             if (current == player || MEM_H(0x2E, current) <= 0) continue;
             const uint16_t flags = MEM_HU(list == 0 ? 0x98 : 0x92, current);
-            const bool ground = list == 0 && (flags & TARGET_GROUND);
+            // Match the ground collision list rather than relying on flags
+            // consulted by the stock missile lock-on scan.
+            const bool ground = list == 0 && ((flags & TARGET_GROUND) || !(flags & TARGET_AIR));
             if (ground) {
                 // The cannon's collision pass accepts active, damageable ground
                 // models even if they lack the stock missile lock flag (0x200).
-                if (filter == TARGET_AIR || (flags & 4) || MEM_H(0x96, current) <= 0 ||
+                if (filter == TARGET_AIR || MEM_H(0x96, current) <= 0 ||
                     MEM_H(0x32, current) != 0) continue;
                 const int count = MEM_H(0x2C, current);
                 const gpr hitboxes = (gpr)MEM_W(0x28, current);
@@ -236,6 +238,24 @@ void chopper_aim_cannon(uint8_t* rdram, recomp_context* ctx) {
     // helicopter rotation alone and pass the assisted angles to the shot only.
     aim_launch(rdram, ctx, ADD32(ctx->r6, -0x14), ctx->r29 + 0x54, TARGET_ANY);
     func_8003F3A4(rdram, ctx);
+}
+
+void chopper_cannon_ground_distance(uint8_t* rdram, recomp_context* ctx) {
+    // The cannon update has already added velocity (+0x68 in the projectile)
+    // to position (+0x50). Test the whole segment against the stock sphere.
+    const Vector end = read_vector(rdram, ctx->r4);
+    const Vector velocity = read_vector(rdram, ctx->r4 + 0x18);
+    const Vector center = read_vector(rdram, ctx->r5);
+    Vector delta = {end.x - center.x, end.y - center.y, end.z - center.z};
+    const float length_squared = velocity.x * velocity.x + velocity.y * velocity.y + velocity.z * velocity.z;
+    if (length_squared > 0.0f) {
+        const float offset = -(delta.x * velocity.x + delta.y * velocity.y + delta.z * velocity.z) / length_squared;
+        const float t = fmaxf(-1.0f, fminf(0.0f, offset));
+        delta.x += t * velocity.x;
+        delta.y += t * velocity.y;
+        delta.z += t * velocity.z;
+    }
+    ctx->f0.fl = sqrtf(delta.x * delta.x + delta.y * delta.y + delta.z * delta.z);
 }
 
 void chopper_aim_secondary(uint8_t* rdram, recomp_context* ctx) {

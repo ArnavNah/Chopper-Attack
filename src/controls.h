@@ -21,6 +21,7 @@ struct Input {
 void load();
 void poll(_SDL_GameController* pad);
 Input read();
+bool toggle_original_flight();
 #ifdef _WIN32
 void edit(SDL_Window* owner);
 #endif

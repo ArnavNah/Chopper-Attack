@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <mutex>
@@ -84,6 +85,7 @@ Mapping mapping = defaults();
 std::filesystem::path settings_path;
 std::mutex input_mutex;
 Input latest_input;
+std::atomic<bool> original_flight{false};
 
 void publish(Input input) {
     std::lock_guard lock(input_mutex);
@@ -93,7 +95,7 @@ void publish(Input input) {
 bool valid_key(int key) {
     if (key == unbound) return true;
     if (key <= SDL_SCANCODE_UNKNOWN || key >= SDL_NUM_SCANCODES ||
-        key == SDL_SCANCODE_F1 || key == SDL_SCANCODE_F11) return false;
+        key == SDL_SCANCODE_F1 || key == SDL_SCANCODE_F2 || key == SDL_SCANCODE_F11) return false;
     return *SDL_GetScancodeName(static_cast<SDL_Scancode>(key)) != '\0';
 }
 
@@ -346,6 +348,12 @@ Input read() {
     return latest_input;
 }
 
+bool toggle_original_flight() {
+    const bool enabled = !original_flight.load();
+    original_flight.store(enabled);
+    return enabled;
+}
+
 #ifdef _WIN32
 void edit(SDL_Window* owner) {
     SDL_SysWMinfo wm{};
@@ -362,11 +370,13 @@ void edit(SDL_Window* owner) {
 }
 
 extern "C" uint16_t chopper_flight_camera_mask(void) {
+    if (chopper::controls::original_flight.load()) return 0;
     const auto input = chopper::controls::read();
     return input.keyboard_flight | (input.pad_connected ? 0x3 : 0);
 }
 
 extern "C" void chopper_apply_flight_controls(uint8_t* rdram, recomp_context* ctx) {
+    if (chopper::controls::original_flight.load()) return;
     const auto input = chopper::controls::read();
     const uint16_t keys = input.keyboard_flight;
     if (!keys && !input.pad_connected) return;
@@ -384,8 +394,9 @@ extern "C" void chopper_apply_flight_controls(uint8_t* rdram, recomp_context* ct
 
     // The guest expects native stick units and applies its own pitch and yaw
     // smoothing. Keep manual keyboard aim available with a pad connected.
-    const fpr yaw{.fl = turn != 0.0f ? turn * 5.0f : input.keyboard_yaw * 7.0f};
-    const fpr pitch{.fl = input.keyboard_pitch != 0.0f ? input.keyboard_pitch * 7.0f : thrust * 2.0f};
+    // Stock flight consumes the N64 stick divided by eight (about +/-10).
+    const fpr yaw{.fl = turn != 0.0f ? turn * 10.0f : input.keyboard_yaw * 7.0f};
+    const fpr pitch{.fl = input.keyboard_pitch != 0.0f ? input.keyboard_pitch * 7.0f : thrust * 4.0f};
     MEM_W(0xE8, ctx->r29) = yaw.u32l;
     MEM_W(0xEC, ctx->r29) = pitch.u32l;
 }

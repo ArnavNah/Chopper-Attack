@@ -1,6 +1,7 @@
 #include "recomp.h"
 #include "trace.h"
 #include "funcs.h"
+#include "chopper_recomp_hooks.h"
 
 RECOMP_FUNC void func_80018E10(uint8_t* rdram, recomp_context* ctx) {
     uint64_t hi = 0, lo = 0, result = 0;
@@ -18248,7 +18249,7 @@ L_8001F2A0:
     // 0x8001F2C8: addiu       $sp, $sp, 0xF0
     ctx->r29 = ADD32(ctx->r29, 0XF0);
 ;}
-RECOMP_FUNC void func_8001F2CC(uint8_t* rdram, recomp_context* ctx) {
+static void ground_collision(uint8_t* rdram, recomp_context* ctx, int sweep_cannon) {
     uint64_t hi = 0, lo = 0, result = 0;
     int c1cs = 0;
     TRACE_ENTRY()
@@ -18417,7 +18418,8 @@ L_8001F3A0:
     // 0x8001F3AC: jal         0x80003668
     // 0x8001F3B0: addiu       $a1, $a1, 0x8
     ctx->r5 = ADD32(ctx->r5, 0X8);
-    func_80003668(rdram, ctx);
+    if (sweep_cannon) chopper_cannon_ground_distance(rdram, ctx);
+    else func_80003668(rdram, ctx);
         goto after_1;
     // 0x8001F3B0: addiu       $a1, $a1, 0x8
     ctx->r5 = ADD32(ctx->r5, 0X8);
@@ -18598,6 +18600,12 @@ L_8001F464:
     // 0x8001F490: addiu       $sp, $sp, 0x40
     ctx->r29 = ADD32(ctx->r29, 0X40);
 ;}
+RECOMP_FUNC void func_8001F2CC(uint8_t* rdram, recomp_context* ctx) {
+    ground_collision(rdram, ctx, 0);
+}
+void chopper_cannon_ground_collision(uint8_t* rdram, recomp_context* ctx) {
+    ground_collision(rdram, ctx, 1);
+}
 RECOMP_FUNC void func_8001F494(uint8_t* rdram, recomp_context* ctx) {
     uint64_t hi = 0, lo = 0, result = 0;
     int c1cs = 0;
